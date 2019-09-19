@@ -23,9 +23,16 @@ from scipy import interpolate
 
 ##################################################################################
 ## date sets 
-test_mode = 0
+test_mode = 4
 # if test_mode == 1, all test codes will be performed
 # if test_mode == 2, portions of test codes
+# if test_mode == 3, efficiency test
+# if test_mode == 4, memory test
+if test_mode == 3:
+    from profile import Profile  
+elif test_mode == 4:
+    import tracemalloc
+    tracemalloc.start()
 
 NK = 120
 # number of k points in one dimension
@@ -215,17 +222,17 @@ scatrate_select = 1
 # 2 for using total scattering rate including self-scattering
 velocity_interp = 0
 # 1: interpolate velocity; only works when stat_v = 2 or 3
-stat_e = 1
+stat_e = 0
 # 1 for to store energy step by step 
-plot_e = 3
+plot_e = 4
 # 1 for to plot by time-sequence
 # 2 for to plot by hist
 # 3 for to plot by hist and to print average energy
 # 4 for to only calculate average energy
-stat_kx = 1
+stat_kx = 0
 # 1 for to store k position step by step
 # 2 for also to store length of deltak step by step
-plot_kx = 2
+plot_kx = 0
 # 1 for to plot arrows
 # 2 for to plot scatters
 stat_bnd = 0
@@ -1376,6 +1383,13 @@ def MCmain(index, trans, scat, bande, velocity, ELECFin, totstep=10000):
 
         if (itot+1)%(totstep//100) == 0:
             print(itot+1, ":", np.array(sbs_time[-1])*6.5821e-4*2, " ps")
+        if (test_mode == 4) and ((itot+1)%(totstep//10) == 0) :
+            print(tracemalloc.get_traced_memory())
+            snapshot = tracemalloc.take_snapshot()
+            top_stats = snapshot.statistics('lineno')
+
+            for stat in top_stats[:10]:
+                print(stat)
 
         if test_mode == 1:
             print("free flight ...")
@@ -1441,7 +1455,7 @@ def MCseries(elecf_list):
     res_series = [] 
 
     for i in range(mcstepn):
-        res_tmp = MCmain(index, trans, scat, bande, velocity, elecf_list[i], 30000)
+        res_tmp = MCmain(index, trans, scat, bande, velocity, elecf_list[i], 10000)
         res_series.append(copy.deepcopy(res_tmp))
         
     MCseries_printer(res_series)
@@ -1495,4 +1509,9 @@ eflist5 = [[0,0],[1e5,0],[3e5,0],[6e5,0],[10e5,0],[15e5,0],[2e6,0],[3e6,0],[4e6,
 eflist6 = [[0,0],[3e5,0],[6e5,0],[15e5,0],[3e6,0],[7e6,0],[13e6,0],[20e6,0],[30e6,0]]
 eflist7 = [[30e6,0]]
 eflist8 = [[0,0],[3e5,0],[5e5,0],[7e5,0],[9e5,0],[11e5,0],[13e5,0],[15e5,0]]
-MCseries(eflist6)
+if test_mode == 3:
+    p = Profile()
+    p.run('MCseries(eflist7)')
+    p.print_stats()
+else:
+    MCseries(eflist7)
