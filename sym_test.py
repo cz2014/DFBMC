@@ -1,10 +1,10 @@
 ############################################################################################
-## This program create all the input files needed 
+## This code create all the input files needed 
 ## 1. tt_geninterp.kpt for irr-bz velocity calculation for wannier program (not used now)
 ## 2. kpt.dat for e-p coupling for epw program
 ## 3. trangular_epw for to do trianle method in epw
 ##
-## Following files are needed:
+## Following inpput files are needed:
 ## 1. info including symmetric information
 ## 2. scf.out including irr k points
 ## 3. tt_geninterp.dat for wannier band energy

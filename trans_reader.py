@@ -1,3 +1,13 @@
+############################################################################################
+## This code is preprocess the transition rate from epw to python array object
+##
+## Following input files are needed:
+## 1. tt_geninterp.dat for wannier band energy
+## 2. transition rate file from epw
+##
+## 09/19/2019 -cz
+############################################################################################
+
 import numpy as np
 import copy
 
