@@ -13,13 +13,9 @@
 
 import numpy as np 
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.cm as cm
 import copy 
-import sys 
 import math 
 import scipy.stats as rn 
-from scipy import interpolate
 
 ##################################################################################
 ## date sets 
@@ -54,6 +50,8 @@ ckint = np.zeros((nelec, ), dtype=int)
 # current k index
 clifetime = np.zeros((nelec, ))
 # current lifetime 
+ckfx = np.zeros((nelec, 2))
+# current electron k-space fractional coordinates
 
 reci_vec = np.array([[0.280915,  0.162186],[0.000000,  0.324372]]) 
 reci_vec = 2*math.pi*reci_vec 
@@ -211,17 +209,9 @@ activate_nstep = 10000
 
 ##################################################################################
 ## control parameters
-klabel_select = 1
-# 1 for using k coordinates to label elec position
-# 2 for ...
-synchronal = 0
-# 0 for not use synchronal full band monte carlo 
-# 1 for use synchronal full band monte carlo 
 scatrate_select = 1
 # 1 for using scattering rate for initial state
 # 2 for using total scattering rate including self-scattering
-velocity_interp = 0
-# 1: interpolate velocity; only works when stat_v = 2 or 3
 stat_e = 0
 # 1 for to store energy step by step 
 plot_e = 4
@@ -253,8 +243,6 @@ restart = 2
 selfscat = 1
 # 0 for not to use self-scattering techniques
 # 1 for to use
-bndsort = 0
-# 1 for to compare velocity and sort band while free flight
 pltsave = 1
 # 0 for to show pictures 
 # 1 for to save pictures in jpg
@@ -270,18 +258,10 @@ sp_fermi = 1
 
 ##################################################################################
 ## large matrix statement
-if klabel_select == 1:
-    ckfx = np.zeros((nelec, 2))
-if velocity_interp == 1:
-    # large_vmesh = np.zeros((NK+1, NK+1, NBND, 2))
-    vfunx_list = []
-    vfuny_list = [] 
 if stat_kx == 2:
     sbs_lendk = []
 if selfscat == 1:
     scat_total = 0.3 
-if bndsort == 2:
-    cloeste = 100
 if stat_v == 3:
     # lastbnd =  np.zeros((nelec, ), dtype=int)
     # lastkint = np.zeros((nelec, ), dtype=int)
@@ -623,7 +603,7 @@ def free_flight_notsync(scat):
 
         deltkfx = np.array([clifetime]).T*ELECF/2 *1e-10 
 
-        if test_mode == 2 and stat_kx == 2:
+        if stat_kx == 2:
             os_lendk = []
             for dk in deltkfx:
                 os_lendk.append(np.linalg.norm(dk)) 
@@ -638,7 +618,7 @@ def free_flight_selfscat_irr(scat):
     global ckfx, ckint, clifetime, sbs_lendk 
 
     if scatrate_select == 1:
-        if test_mode == 2 and stat_kx == 2:
+        if stat_kx == 2:
             os_lendk = []
         for ie in range(nelec):
             lendk_tmp = 0.0
@@ -655,7 +635,7 @@ def free_flight_selfscat_irr(scat):
                 clifetime_tmp += clt_atp 
 
                 deltkfx = clt_atp * ELECF/2 * 1e-10
-                if test_mode == 2 and stat_kx == 2:
+                if stat_kx == 2:
                     lendk_tmp += np.linalg.norm(deltkfx) 
 
                 deltkfx = cart2frac([deltkfx])[0]
@@ -667,20 +647,20 @@ def free_flight_selfscat_irr(scat):
                 if np.random.rand()*scat_total < iscat:
                     break 
             
-            if test_mode == 2 and stat_kx == 2:
+            if stat_kx == 2:
                 os_lendk.append(lendk_tmp) 
             clifetime[ie] = clifetime_tmp 
             ckfx[ie] = ikfx 
             ckint[ie] = ik 
 
-        if test_mode == 2 and stat_kx == 2:
+        if stat_kx == 2:
             sbs_lendk.append(os_lendk) 
 
 def free_flight_selfscat(scat):
     global ckfx, ckint, clifetime, sbs_lendk 
 
     if scatrate_select == 1:
-        if test_mode == 2 and stat_kx == 2:
+        if stat_kx == 2:
             os_lendk = []
         for ie in range(nelec):
             lendk_tmp = 0.0
@@ -696,7 +676,7 @@ def free_flight_selfscat(scat):
                 clifetime_tmp += clt_atp 
 
                 deltkfx = clt_atp * ELECF/2 * 1e-10
-                if test_mode == 2 and stat_kx == 2:
+                if stat_kx == 2:
                     lendk_tmp += np.linalg.norm(deltkfx) 
 
                 deltkfx = cart2frac([deltkfx])[0]
@@ -707,153 +687,15 @@ def free_flight_selfscat(scat):
                 if np.random.rand()*scat_total < iscat:
                     break 
             
-            if test_mode == 2 and stat_kx == 2:
+            if stat_kx == 2:
                 os_lendk.append(lendk_tmp) 
             clifetime[ie] = clifetime_tmp 
             ckfx[ie] = ikfx 
             ckint[ie] = ik 
 
-        if test_mode == 2 and stat_kx == 2:
+        if stat_kx == 2:
             sbs_lendk.append(os_lendk) 
 
-
-def velocity_sim(cv, candidatev, ce, candidatee):
-    cutoffe = 0.10
-
-    diflist = [np.linalg.norm(candidatev[i]-cv) for i in range(NBND)] 
-    bndmatch = np.argsort(diflist)
-    tag = 0
-    for i in range(NBND):
-        bndtmp = bndmatch[i]
-        if abs(ce - candidatee[bndtmp]) < cutoffe :
-            tag = 1
-            break 
-
-    if test_mode == 2 and tag == 0:
-        print("no band satisfied velocity and bande!!!") 
-    if test_mode == 2 and tag == 1 and i > 1:
-        print("dangerous fit, beyond expection!!!")
-    if test_mode == 2 and tag == 1 and i == 1:
-        print("choose second band index!!!")
-    
-    return bndtmp 
-
-def velocity_sim2(ce, candidatee):
-    global cloeste
-    cutoffe = 0.05
-
-    diflist = [abs(candidatee[i] - ce) for i in range(NBND)] 
-    bndmatch = np.argsort(diflist)
-
-    b1 = bndmatch[0]
-    b2 = bndmatch[1] 
-
-    if cloeste > abs(candidatee[b1]-candidatee[b2]):
-        cloeste = abs(candidatee[b1]-candidatee[b2])
-        print("current cloeste:", cloeste)
-
-    if abs(candidatee[b1]-candidatee[b2]) < cutoffe:
-        return b2 
-    else:
-        return b1 
-
-def free_flight_selfscat_bndsort(scat, velocity, bande):
-    global ckfx, ckint, clifetime, sbs_lendk, cbnd 
-
-    if scatrate_select == 1:
-        if test_mode == 2 and stat_kx == 2:
-            os_lendk = []
-        for ie in range(nelec):
-            lendk_tmp = 0.0
-            clifetime_tmp = 0.0
-
-            ik = ckint[ie]
-            ibnd = cbnd[ie]
-            iscat = scat[ik][ibnd] 
-            ikfx = ckfx[ie] 
-
-            while True:
-                clt_atp = -1/scat_total * np.log(np.random.rand())
-                clifetime_tmp += clt_atp 
-
-                deltkfx = clt_atp * ELECF/2 * 1e-10
-                if test_mode == 2 and stat_kx == 2:
-                    lendk_tmp += np.linalg.norm(deltkfx) 
-
-                deltkfx = cart2frac([deltkfx])[0]
-                ikfx = floor_list(deltkfx + ikfx)
-                iknew = get_kindex([ikfx])[0]
-                ## here we add band sorting method
-                if iknew != ik:
-                    if bndsort == 1:
-                        ibnd = velocity_sim(velocity[ik][ibnd], velocity[iknew], bande[ik][ibnd], bande[iknew])
-                    elif bndsort == 2:
-                        ibnd = velocity_sim2(bande[ik][ibnd], bande[iknew])
-                    ik = iknew 
-                iscat = scat[ik][ibnd] 
-
-                if np.random.rand()*scat_total < iscat:
-                    break 
-            
-            if test_mode == 2 and stat_kx == 2:
-                os_lendk.append(lendk_tmp) 
-            clifetime[ie] = clifetime_tmp 
-            ckfx[ie] = ikfx 
-            ckint[ie] = ik 
-            cbnd[ie] = ibnd 
-
-        if test_mode == 2 and stat_kx == 2:
-            sbs_lendk.append(os_lendk) 
-
-def free_flight_selfscat_bndsort_irr(scat, velocity, bande):
-    global ckfx, ckint, clifetime, sbs_lendk, cbnd 
-
-    if scatrate_select == 1:
-        if test_mode == 2 and stat_kx == 2:
-            os_lendk = []
-        for ie in range(nelec):
-            lendk_tmp = 0.0
-            clifetime_tmp = 0.0
-
-            ik = ckint[ie]
-            ibnd = cbnd[ie]
-            iscat = scat[bz2ibz[ik]][ibnd] 
-            # difference in irrbz
-            ikfx = ckfx[ie] 
-
-            while True:
-                clt_atp = -1/scat_total * np.log(np.random.rand())
-                clifetime_tmp += clt_atp 
-
-                deltkfx = clt_atp * ELECF/2 * 1e-10
-                if test_mode == 2 and stat_kx == 2:
-                    lendk_tmp += np.linalg.norm(deltkfx) 
-
-                deltkfx = cart2frac([deltkfx])[0]
-                ikfx = floor_list(deltkfx + ikfx)
-                iknew = get_kindex([ikfx])[0]
-                ## here we add band sorting method
-                if iknew != ik:
-                    if bndsort == 1:
-                        ibnd = velocity_sim(velocity[ik][ibnd], velocity[iknew], bande[ik][ibnd], bande[iknew])
-                    elif bndsort == 2:
-                        ibnd = velocity_sim2(bande[ik][ibnd], bande[iknew])
-                    ik = iknew 
-                iscat = scat[bz2ibz[ik]][ibnd] 
-                # difference in irrbz
-
-                if np.random.rand()*scat_total < iscat:
-                    break 
-            
-            if test_mode == 2 and stat_kx == 2:
-                os_lendk.append(lendk_tmp) 
-            clifetime[ie] = clifetime_tmp 
-            ckfx[ie] = ikfx 
-            ckint[ie] = ik 
-            cbnd[ie] = ibnd 
-
-        if test_mode == 2 and stat_kx == 2:
-            sbs_lendk.append(os_lendk) 
 
 def scattering(trans, index):
     global ckfx, ckint, cbnd, clifetime
@@ -977,11 +819,6 @@ def initialize(scat, ELECFin=[3e6, 0]):
 
     ckint = get_kindex(ckfx) 
 
-    # if stat_v == 3 and velocity_interp == 0:
-    #     # lastbnd = copy.deepcopy(cbnd)
-    #     # lastkint = copy.deepcopy(ckint) 
-    #     for ie in range(nelec):
-    #         lastv = velocity[ckint[ie], cbnd[ie]] 
     if stat_v == 3:
         lastv = np.zeros((nelec, 2))
 
@@ -1031,52 +868,6 @@ def output_infiles(irrfkx, irrwk):
         fw.write("  %20.12f %20.12f %20.12f %20.12f\n" %(irrfkx[i][0], irrfkx[i][1], 0.0, irrwk[i]))
     fw.close()
 
-        
-def vfun_initialize(velocity):
-    global vfunx_list, vfuny_list
-
-    large_vmesh = np.zeros(((NK+1), (NK+1), NBND, 2))
-    kx_list = np.zeros(((NK+1), (NK+1), 2))
-    for i in range(len(velocity)):
-        iy = i%NK 
-        ix = i//NK 
-        large_vmesh[ix, iy] = velocity[i,:,0:2] 
-        kx_list[ix, iy] = frac2cart(get_kfrac([i]))[0] 
-
-
-    large_vmesh[NK, 0:NK] = large_vmesh[0, 0:NK]
-    kx_list[NK, 0:NK] = kx_list[0, 0:NK] + np.dot([1,0], reci_vec)
-    large_vmesh[0:NK, NK] = large_vmesh[0:NK, 0]
-    kx_list[0:NK, NK] = kx_list[0:NK, 0] + np.dot([0,1], reci_vec)
-    large_vmesh[NK, NK] = large_vmesh[0,0] 
-    kx_list[NK, NK] = kx_list[0,0] + np.dot([1,1], reci_vec)
-
-    large_vlist = np.zeros(((NK+1)**2, NBND, 2))
-    for ibnd in range(NBND):
-        large_vlist[:, ibnd, 0] = np.reshape(large_vmesh[:,:,ibnd,0], (-1,))
-        large_vlist[:, ibnd, 1] = np.reshape(large_vmesh[:,:,ibnd,1], (-1,))
-    # large_vmesh = np.reshape(large_vmesh, (NBND, -1))
-    ky = np.reshape(kx_list[:,:,1], (-1,)) 
-    kx = np.reshape(kx_list[:,:,0], (-1,))
-
-    kxy = np.zeros(((NK+1)**2, 2))
-    kxy[:,0] = kx
-    kxy[:,1] = ky
-
-    # x = np.linspace(0,1,num=NK+1)
-    # xc = np.zeros((NK+1, NK+1, 2))
-    # xc[:,:,0], xc[:,:,1] = np.meshgrid(x,x) 
-
-    # for i in range(len(xc)):
-    #     xc[i] = frac2cart(xc[i]) 
-
-    for ibnd in range(len(velocity[0])):
-        # vfunx_list.append(interpolate.interp2d(xc[:,:,0], xc[:,:,1], large_vmesh[:,:,ibnd,0], kind='linear'))
-        # vfuny_list.append(interpolate.interp2d(xc[:,:,0], xc[:,:,1], large_vmesh[:,:,ibnd,1], kind='linear'))
-        # vfunx_list.append(interpolate.SmoothBivariateSpline(kx, ky, large_vlist[:,ibnd,0]))
-        # vfuny_list.append(interpolate.SmoothBivariateSpline(kx, ky, large_vlist[:,ibnd,1]))
-        vfunx_list.append(interpolate.LinearNDInterpolator(kxy, large_vlist[:,ibnd,0]))
-        vfuny_list.append(interpolate.LinearNDInterpolator(kxy, large_vlist[:,ibnd,1]))
 
 # this function collects energy or velocity or k postion information 
 def statistics(bande, velocity):
@@ -1091,57 +882,24 @@ def statistics(bande, velocity):
         sbs_energy.append(os_energy.copy())
 
     if stat_v == 1:
-        if velocity_interp == 0:
-            os_velocity = velocity[ckint, cbnd, 0:2] 
-            sbs_velocity.append(os_velocity.copy()) 
-        elif velocity_interp == 1:
-            cvxy = np.zeros((nelec, 2))
-            ktmp = frac2cart(ckfx)
-            for ie in range(nelec):
-                cvxy[ie][0] = vfunx_list[cbnd[ie]]([ktmp[ie][0], ktmp[ie][1]])
-                cvxy[ie][1] = vfuny_list[cbnd[ie]]([ktmp[ie][0], ktmp[ie][1]]) 
-            sbs_velocity.append(cvxy.copy())
+        os_velocity = velocity[ckint, cbnd, 0:2] 
+        sbs_velocity.append(os_velocity.copy()) 
     elif stat_v == 2:
         if stat_t == 0:
             avg_velocity += velocity[ckint, cbnd, 0:2]
-        elif stat_t == 1 and velocity_interp == 0: 
+        elif stat_t == 1: 
             avg_velocity[:,0] += np.multiply(clifetime, velocity[ckint, cbnd, 0])
             avg_velocity[:,1] += np.multiply(clifetime, velocity[ckint, cbnd, 1])
-        elif stat_t == 1 and velocity_interp == 1:
-            vtmp = np.zeros((nelec, 2))
-            ktmp = frac2cart(ckfx)
-            for ie in range(nelec):
-                vtmp[ie][0] = vfunx_list[cbnd[ie]]([ktmp[ie][0], ktmp[ie][1]])
-                vtmp[ie][1] = vfuny_list[cbnd[ie]]([ktmp[ie][0], ktmp[ie][1]]) 
-            avg_velocity[:,0] += np.multiply(clifetime, vtmp[:, 0])
-            avg_velocity[:,1] += np.multiply(clifetime, vtmp[:, 1])
-            if test_mode == 1:
-                print("interpolated velocity: ", vtmp[0])
     elif stat_v == 3:
         if stat_t == 0:
             vtmp = (lastv + velocity[ckint, cbnd, 0:2])/2
             avg_velocity += vtmp
             lastv = copy.deepcopy(velocity[ckint, cbnd, 0:2])
-        elif stat_t == 1 and velocity_interp == 0:
+        elif stat_t == 1:
             vtmp = (velocity[ckint, cbnd, 0:2] + lastv)/2
             avg_velocity[:,0] += np.multiply(clifetime, vtmp[:, 0])
             avg_velocity[:,1] += np.multiply(clifetime, vtmp[:, 1]) 
             lastv = copy.deepcopy(velocity[ckint, cbnd, 0:2])
-        elif stat_t == 1 and velocity_interp == 1:
-            cvxy = np.zeros((nelec, 2))
-            ktmp = frac2cart(ckfx)
-            for ie in range(nelec):
-                cvxy[ie][0] = vfunx_list[cbnd[ie]]([ktmp[ie][0], ktmp[ie][1]])
-                cvxy[ie][1] = vfuny_list[cbnd[ie]]([ktmp[ie][0], ktmp[ie][1]]) 
-            vtmp = (cvxy + lastv)/2  
-            avg_velocity[:,0] += np.multiply(clifetime, vtmp[:, 0])
-            avg_velocity[:,1] += np.multiply(clifetime, vtmp[:, 1]) 
-            lastv = copy.deepcopy(cvxy) 
-
-
-        # lastkint = copy.deepcopy(ckint) 
-        # lastbnd = copy.deepcopy(cbnd) 
-        # lastv = copy.deepcopy(velocity[ckint, cbnd])
     
     if stat_kx == 1:
         sbs_kx.append(copy.deepcopy(ckfx))
@@ -1326,28 +1084,6 @@ def check_velocity(velocity):
 
     print("averaged velocity in x,y: ", avgvx, avgvy) 
 
-def check_vfun(velocity):
-    xold = np.linspace(0,1,num=NK)
-    yold = np.linspace(0,1,num=NK)
-    xnew = np.linspace(0,1,num=100)
-    ynew = np.linspace(0,1,num=100)
-    yplt, xplt = np.meshgrid(xnew, ynew)
-    yoldplt, xoldplt = np.meshgrid(xold, yold)
-    for ibnd in range(NBND):
-        fig = plt.figure(figsize=(9, 6)) 
-        # old grids
-        ax=plt.subplot(1, 2, 1,projection = '3d')  
-        surf = ax.plot_surface(xoldplt, yoldplt, np.reshape(velocity[:,ibnd,0],(NK,NK)), rstride=2, cstride=2, cmap=cm.coolwarm,linewidth=0.5, antialiased=True)  
-        plt.colorbar(surf, shrink=0.5, aspect=5) 
-
-        fxnew = vfunx_list[ibnd](xnew, ynew)
-        # fynew = vfunx_list[ibnd](xnew, ynew)
-        ax2=plt.subplot(1, 2, 2,projection = '3d')  
-        surf2 = ax2.plot_surface(xplt, yplt, fxnew, rstride=2, cstride=2, cmap=cm.coolwarm,linewidth=0.5, antialiased=True)
-        plt.colorbar(surf2, shrink=0.5, aspect=5)
-
-        plt.show()
-        plt.close()
         
 def check_kpath(): 
     sbs_tmp = np.array(sbs_lendk) 
@@ -1370,14 +1106,10 @@ def check_kpath():
 def MCmain(index, trans, scat, bande, velocity, ELECFin, totstep=10000):
 
     initialize(scat, ELECFin)
-    if velocity_interp == 1:
-        vfun_initialize(velocity)
 
     if test_mode == 1:
         # check_trans(trans, index, bande)
         check_velocity(velocity)
-        if velocity_interp == 1:
-            check_vfun(velocity)
 
     for itot in range(totstep):
 
@@ -1410,17 +1142,13 @@ def MCmain(index, trans, scat, bande, velocity, ELECFin, totstep=10000):
 
         if selfscat == 0:
             free_flight_notsync(scat)        
-        elif selfscat == 1 and bndsort == 0 and irrbz == 0:
+        elif selfscat == 1 and irrbz == 0:
             free_flight_selfscat(scat)
-        elif selfscat == 1 and bndsort == 0 and irrbz == 1:
+        elif selfscat == 1 and irrbz == 1:
             free_flight_selfscat_irr(scat)
-        elif selfscat == 1 and bndsort > 0 and irrbz == 0:
-            free_flight_selfscat_bndsort(scat, velocity, bande) 
-        elif selfscat == 1 and bndsort > 0 and irrbz == 1:
-            free_flight_selfscat_bndsort_irr(scat, velocity, bande)
 
     res = plot_stat('E='+str(np.linalg.norm(ELECFin))+' V/m')
-    if test_mode == 2 and stat_kx == 2:
+    if stat_kx == 2:
         check_kpath()
 
     # totres_v = np.array([np.sum(res_v[:, 0]), np.sum(res_v[:, 1])]) / nelec 
@@ -1460,44 +1188,6 @@ def MCseries(elecf_list):
         
     MCseries_printer(res_series)
 
-
-
-##################################################################################
-## auxiliary functions
-def array_plot(x, matrix, plot_format='plot'):
-    for ibnd in range(len(matrix[0])):
-        if (plot_format[0] == 'p'):
-            plt.plot(x, matrix[:,ibnd])
-        elif (plot_format[0] == 's'):
-            plt.scatter(x, matrix[:,ibnd])
-
-    plt.show()
-    plt.close()
-
-def scat_plot(scat1, scat2, nk, nbnd):
-    nlist = nk*nbnd 
-    if (scat2 == []):
-        comp = np.reshape(scat1, (nlist,-1))
-    else:
-        comp = np.reshape(scat1, (nlist,-1)) - np.reshape(scat2, (nlist, -1)) 
-
-    plt.hist(comp, bins=50)
-
-    plt.show()
-    plt.close()
-
-def trans_count(trans, nk, nbnd):
-    tot = 0
-    for ik in range(nk):
-        for ibnd in range(nbnd):
-            tot = tot + trans[ik][ibnd].nbytes
-
-    return tot 
-
-def scat_lost(scatcut, scatuncut, nk, nbnd):
-    lostp = (scatuncut - scatcut)/scatuncut 
-
-    scat_plot(lostp, [], nk, nbnd)
 
 
 
