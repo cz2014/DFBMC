@@ -336,30 +336,6 @@ def frac2cart(kfrac_list):
 
 ##################################################################################
 ## functions to read
-def reader_bands(filename, nk, nbnd_r, nbnd_list):
-    nbnd = len(nbnd_list)
-
-    klen = np.zeros((nk, ))
-    bande = np.zeros((nk, nbnd))
-
-    fo = open(filename, 'r')
-
-    for ibnd_r in range(nbnd_r):
-        for ik in range(nk):
-            line = fo.readline().split()
-
-            if (ibnd_r == 0):
-                klen[ik] = float(line[0])
-
-            if ibnd_r in nbnd_list:
-                ibnd = np.argwhere(nbnd_list == ibnd_r)
-                bande[ik][ibnd] = float(line[1])
-
-        line = fo.readline()
-
-    fo.close()
-    return klen, bande
-
 def reader_velocity(filename, nk, nbndout, nbnd, ibndlist):
     kvec = np.zeros((nk, 3))
     velocity = np.zeros((nk, nbndout, 3))
@@ -565,32 +541,6 @@ def reader_trans(filename, nk, nbnd, scut=-1, prefix='datasets'):
 
 ##################################################################################
 ## relatively large functions
-def bande_sort(velocity, bande):
-    for ik in range(len(bande)):
-        tmpbnde = bande[ik,:]
-        tmpindex = np.argsort(np.argsort(tmpbnde))
-        # if (not (tmpindex == range(4)).all() ):
-        #     print("google!")
-        velocity[ik,:] = velocity[ik,tmpindex]
-
-# replace q index with final state k index; sort transition rate; sort final states index;
-def trans_sort(trans, index, bande):
-    for ik in range(len(trans[0])):
-        tmpbnde = bande[ik,:]
-        # tmpindex1 = np.argsort(tmpbnde)
-        tmpindex2 = np.argsort(np.argsort(tmpbnde))
-        trans[ik,:] = trans[ik, tmpindex2]
-        index[ik,:] = index[ik, tmpindex2]
-        # for ibnd in range(len(trans[0][0])):
-        #     # for iqjbnd in index[ik][ibnd]:
-        #     #     iqjbnd[0] = kindex_add(ik, iqjbnd[0])
-        #     #     iqjbnd[1] = tmpindex1[iqjbnd[1]]
-            
-        #     tmpindex3 = np.argsort(trans[ik][ibnd])
-        #     tmpindex3 = np.flip(tmpindex3)
-        #     trans[ik,ibnd,:] = trans[ik,ibnd,tmpindex3]
-        #     index[ik,ibnd,:] = index[ik,ibnd,tmpindex3]
-
 
 # free_flight step without synchronal FBMC
 # need to update ckint in advance
@@ -1108,7 +1058,7 @@ def MCmain(index, trans, scat, bande, velocity, ELECFin, totstep=10000):
     initialize(scat, ELECFin)
 
     if test_mode == 1:
-        # check_trans(trans, index, bande)
+        check_trans(trans, index, bande)
         check_velocity(velocity)
 
     for itot in range(totstep):
