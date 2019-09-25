@@ -19,7 +19,7 @@ import scipy.stats as rn
 
 ##################################################################################
 ## date sets 
-test_mode = 4
+test_mode = 0
 # if test_mode == 1, all test codes will be performed
 # if test_mode == 2, portions of test codes
 # if test_mode == 3, efficiency test
@@ -212,9 +212,9 @@ activate_nstep = 10000
 scatrate_select = 1
 # 1 for using scattering rate for initial state
 # 2 for using total scattering rate including self-scattering
-stat_e = 0
+stat_e = 1
 # 1 for to store energy step by step 
-plot_e = 4
+plot_e = 1
 # 1 for to plot by time-sequence
 # 2 for to plot by hist
 # 3 for to plot by hist and to print average energy
@@ -1133,7 +1133,7 @@ def MCseries(elecf_list):
     res_series = [] 
 
     for i in range(mcstepn):
-        res_tmp = MCmain(index, trans, scat, bande, velocity, elecf_list[i], 10000)
+        res_tmp = MCmain(index, trans, scat, bande, velocity, elecf_list[i], 1000)
         res_series.append(copy.deepcopy(res_tmp))
         
     MCseries_printer(res_series)

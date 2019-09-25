@@ -10,12 +10,15 @@ def target_fun(x, a=shared_mem):
         
     return "input x: "+str(x)+"; len(a) = "+str(len(a))+"; id(a) = "+str(id(a))
 
+def target_fun2():
+    return 1
+
 if __name__ == '__main__':
     # shared_mem = np.arange(10)
 
     inputs = list(range(10))
-    pool = Pool(processes=5)
-    res = pool.map(target_fun, inputs)
+    pool = Pool(processes=4)
+    res = pool.starmap(target_fun2, [[],[]])
     pool.close()
     pool.join()
 
