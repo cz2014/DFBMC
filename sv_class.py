@@ -1137,6 +1137,7 @@ class MCseries:
 
         reset self.totstep
         redirect output file
+        reset random seed
         do series of MC simulation under different 
         return self.res_series
         """
@@ -1148,6 +1149,7 @@ class MCseries:
                 self.fout = open(mpfoutname, 'w')
             except:
                 print(mpfoutname+" cannot be created.")
+        np.random.seed()
 
         for i in range(len(self.elecf_list)):
             self.MCmain(self.elecf_list[i])

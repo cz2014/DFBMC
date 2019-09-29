@@ -7,6 +7,7 @@
 scattering*
 *.png
 *.pyc
+*output
 
 monobnd_test.py
 shuttle_bande.py
