@@ -1,17 +1,7 @@
-############################################################################################
-## This code is preprocess the transition rate from epw to python array object
-##
-## Following input files are needed:
-## 1. tt_geninterp.dat for wannier band energy
-## 2. transition rate file from epw
-##
-## 09/19/2019 -cz
-############################################################################################
-
 import numpy as np
 import copy
 
-ds = 3
+ds = 2
 # 1 for 30x30 cut
 # 2 for 30x30 uncut
 # 3 for 120x120
@@ -19,31 +9,51 @@ ds = 3
 # 1 for memory test
 # 2 for time test
 
-restart = 1
+restart = 2
 # 0 for no-restart test
 # 1 for restart write test
 # 11 for write scat only
 # 12 for write index and trans only
+# 13 for write all but scat from fort.708
 # 2 for restart read
 
 #if test_mode == 1:
 #    tracemalloc.start()
+
+folder_prefix = './MoSe2_tri/'
+prefix = folder_prefix+'ds'
 
 if ds == 1:
     NK = 900
     NBND = 4
     FILENAME = 'fort.708-cut'
 elif ds == 2:
-    NK = 900
-    NBND = 4
-    FILENAME = 'fort.708-full'
+    NKlen = 120
+    NK = 1261
+    NBND = 1
+    NBNDout = 1
+    IJBNDlist = [0]
+    BNDlist = [0]
+    FILENAME = folder_prefix+'fort.708'
 elif ds == 3:
     NK = 32400
     NBND = 1
     NBNDout = 1
     IJBNDlist = [0]
     BNDlist = [0]
-    FILENAME = 'trans180_wgauss10.120'
+    FILENAME = 'fort.708'
+
+def kindex_add(ik, iq):
+    NK = NKlen
+    iky = ik%NK 
+    ikx = ik//NK 
+    iqy = iq%NK
+    iqx = iq//NK 
+
+    jky = (iky+iqy)%NK 
+    jkx = (ikx+iqx)%NK 
+
+    return jkx*NK + jky 
 
 def do_chunk(chunk, nk, nbnd, nbndout, scut, ijbndlist):
     nline = int(len(chunk)/36)
@@ -111,7 +121,7 @@ def reader_trans(filename, nk, nbnd, nbndout, scut, ijbndlist):
 
     fo.close()
 
-    return index, trans
+    return index, trans, scat
     # in eV units
 
 def reader_scat(filename, nk, nbndout, bndlist):
@@ -123,19 +133,57 @@ def reader_scat(filename, nk, nbndout, bndlist):
 
     line = fo.readline()
     scat = np.zeros((nk, nbndout))
+    bande = np.zeros((nk, nbndout))
     bndlist = np.array(bndlist)
     while line:
         line = line.split()
         ik = int(line[0]) - 1
         ibnd = int(line[1]) - 1
         im = float(line[4])
+        ie = float(line[2])
         if ibnd in bndlist:
             scat[ik][ibnd] += im
+            bande[ik][ibnd] = ie 
 
         line = fo.readline()
 
-    scat = scat*0.001
-    return scat
+    # scat = scat*0.001
+    bande = bande - np.min(bande)
+    return scat, bande 
+
+def reader_velocity(filename, nk, nbndout, nbnd, ibndlist):
+    kvec = np.zeros((nk, 3))
+    velocity = np.zeros((nk, nbndout, 3))
+    bande = np.zeros((nk, nbndout))
+
+    fo = open(filename, 'r')
+
+    for ik in range(nk):
+        for ibnd in range(nbnd):
+            line = fo.readline()
+
+            if (line[0] == '#'):
+                line = fo.readline()
+                line = fo.readline()
+                line = fo.readline()
+
+            if ibnd in ibndlist:
+                line = line.split()
+
+                if (ibnd == 0):
+                    kvec[ik][0] = float(line[1])
+                    kvec[ik][1] = float(line[2])
+                    kvec[ik][2] = float(line[3])
+
+                bande[ik][ibnd] = float(line[4])
+
+                velocity[ik][ibnd][0] = float(line[5])
+                velocity[ik][ibnd][1] = float(line[6])
+                velocity[ik][ibnd][2] = float(line[7])
+
+    fo.close()
+
+    return kvec, bande, velocity
 
 def writer_data(trans, index, scat, prefix="datasets"):
 
@@ -157,22 +205,38 @@ def reader_restart(prefix="datasets"):
 
     return trans, index, scat
 
+def printer_scat(filename, scat, bande):
+    fw = open(filename, 'w')
+    for ik in range(len(scat)):
+        for ibnd in range(len(scat[0])):
+            fw.write("%20.12f %20.12f \n" %(bande[ik][ibnd], scat[ik][ibnd]))
+
+    fw.close()
+
+# def trans_ejump(trans, index, bande):
+
+
 def test_step():
     if restart == 0:
         index, trans_cut, scat_cut = reader_trans(FILENAME, NK, NBND, NBNDout, 1e-6, IJBNDlist)
     elif restart == 1:
-        index, trans_cut = reader_trans(FILENAME, NK, NBND, NBNDout, 1e-8, IJBNDlist)
-        scat_cut = reader_scat('linewidth.elself', NK, NBNDout, BNDlist)
-        writer_data(trans_cut, index, scat_cut, 'ds180_4bnd_cut1e-8')
+        index, trans_cut, _ = reader_trans(FILENAME, NK, NBND, NBNDout, 1e-8, IJBNDlist)
+        scat_cut, _ = reader_scat('linewidth.elself', NK, NBNDout, BNDlist)
+        writer_data(trans_cut, index, scat_cut, prefix)
     elif restart == 11:
-        scat_cut = reader_scat('linewidth.elself', NK, NBNDout, BNDlist)
-        writer_scat(scat_cut, 'ds150_cut1e-6')
+        scat_cut, _ = reader_scat('linewidth.elself', NK, NBNDout, BNDlist)
+        writer_scat(scat_cut, prefix)
     elif restart == 12:
-        index, trans_cut = reader_trans(FILENAME, NK, NBND, NBNDout, 1e-8, IJBNDlist)
-        writer_traind(trans_cut, index, 'ds120_1bnd_cut1e-8')
+        index, trans_cut, _ = reader_trans(FILENAME, NK, NBND, NBNDout, 1e-8, IJBNDlist)
+        writer_traind(trans_cut, index, prefix)
+    elif restart == 13:
+        index, trans_cut, scat_cut = reader_trans(FILENAME, NK, NBND, NBNDout, 1e-8, IJBNDlist)
+        writer_data(trans_cut, index, scat_cut, prefix)
+
     elif restart == 2:
-        trans_cut, index, scat_cut = reader_restart('ds150')
+        trans_cut, index, scat_cut = reader_restart(prefix)
+        scat_lw, bande = reader_scat(folder_prefix+'linewidth_wgauss20.elself', NK, 1, [0])
+        printer_scat(folder_prefix+'scat_output', scat_lw, bande) 
 
 test_step()
-
 
