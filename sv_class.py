@@ -618,7 +618,7 @@ class MCseries:
 
         The first part contains non-self-scattering free flight process.
         The second part used self-scattering method to accurately simulate free 
-        flight process. Irreducible k q points method are implemented. 
+        flight process. Irreducible k q points method is implemented. 
         """
         if self.selfscat == 0:
             scat_list = self.scat[self.ckint, self.cbnd]
@@ -646,9 +646,9 @@ class MCseries:
 
                 ik = self.ckint[ie]
                 ibnd = self.cbnd[ie]
-                if self.selfscat == 0:
+                if self.irrbz == 0:
                     iscat = self.scat[ik][ibnd]
-                elif self.selfscat == 1:
+                elif self.irrbz == 1:
                     iscat = self.scat[self.bz2ibz[ik]][ibnd]
                 ikfx = self.ckfx[ie] 
 
@@ -663,9 +663,9 @@ class MCseries:
                     deltkfx = self.cart2frac([deltkfx])[0]
                     ikfx = self.floor_list(deltkfx + ikfx)
                     ik = self.get_kindex([ikfx])[0]
-                    if self.selfscat == 0:
+                    if self.irrbz == 0:
                         iscat = self.scat[ik][ibnd]
-                    elif self.selfscat == 1:
+                    elif self.irrbz == 1:
                         iscat = self.scat[self.bz2ibz[ik]][ibnd] 
 
                     if np.random.rand()*self.scat_total < iscat:
@@ -766,7 +766,8 @@ class MCseries:
         if self.test_mode == 1:
             self.ckfx[:,:] = 0.001
         else:
-            self.ckfx = np.random.rand(self.nelec, 2)
+            # self.ckfx = np.random.rand(self.nelec, 2)
+            self.ckfx[:,:] = 0.34
 
         self.ckint = self.get_kindex(self.ckfx)
 
