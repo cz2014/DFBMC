@@ -299,6 +299,12 @@ class MCseries:
 
         self.res_series = []
 
+        ## add:
+        self.stat_scat = 1
+        if self.stat_scat == 1:
+            self.lastscat = np.zeros((self.nelec, ))
+            self.avg_scat = np.zeros((self.nelec, ))
+
     
     def init_check(self):
         """Check whether variables in __init__ are compatible."""
@@ -802,6 +808,11 @@ class MCseries:
         if self.stat_kx == 2:
             self.sbs_lendk = []
 
+        # add:
+        if self.stat_scat == 1:
+            self.lastscat = np.zeros((self.nelec, ))
+            self.avg_scat = np.zeros((self.nelec, ))
+
     def output_infiles(self):
         """
         Generate tt_geninterp.kpt and kpt.dat used in wannier90 and epw.
@@ -869,6 +880,16 @@ class MCseries:
             self.sbs_bnd.append(copy.deepcopy(self.cbnd)) 
         if self.stat_kint == 1:
             self.sbs_kint.append(copy.deepcopy(self.ckint))
+
+        ## add:
+        if self.stat_scat == 1:
+            if self.stat_t == 1 and self.irrbz == 1:
+                scattmp = (self.scat[self.bz2ibz[self.ckint], self.cbnd] + self.lastscat)/2
+                self.avg_scat += self.clifetime * scattmp
+                self.lastscat = copy.deepcopy(self.scat[self.bz2ibz[self.ckint], self.cbnd])
+            else:
+                raise Exception("wrong way!!!")
+
 
     def MC_plot(self, title='default title'):
         """
@@ -1017,6 +1038,12 @@ class MCseries:
 
             counttmp = np.array([np.sum(self.sbs_kint==i) for i in np.unique(self.sbs_kint)])
             print("most frequent k index: ", np.unique(self.sbs_kint)[np.argmax(counttmp)], file=self.fout)
+
+        ## add:
+        if self.stat_scat == 1:
+            res_scat = self.avg_scat/self.tot_time*2/6.5821e-16 # eV to s-1
+            stat_quantity['scat(s-1)'] = copy.deepcopy(res_scat)
+
 
         self.res_series.append(copy.deepcopy(stat_quantity)) 
  
