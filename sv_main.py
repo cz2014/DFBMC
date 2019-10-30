@@ -27,7 +27,7 @@ sv_test = sv.MCseries(
     NBNDv=4, 
     reci_vec=lattice_para[3], 
     prefix='./WS2',
-    test_mode=0,
+    test_mode=5,
     # governed by test_mode
     # stat_e=1,
     # plot_e=1,
@@ -43,7 +43,7 @@ sv_test = sv.MCseries(
     restart=2,
     irrbz=1,
     sp_fermi=1,
-    elecf_list=eflist9,
+    elecf_list=eflist5,
     totstep=10000,
     # output='sv.out',
     # enable_para=True,

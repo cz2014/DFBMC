@@ -555,19 +555,48 @@ def reset_detailed_balance(trans, index, scat, bande, bz2ibz=None, bz_sym=None, 
 
                     kq2k_index = np.where(index[ikq_irr][jbnd][:,0] == minus_iq)[0]
 
+                    # if np.size(kq2k_index)>0:
+                    #     kq2k_index = kq2k_index[0]
+                    #     p1 = trans[ikq_irr][jbnd][kq2k_index]*scat[ikq_irr][jbnd]
+                    #     p1e = p1*(e**((bande[ik_irr][ibnd]-bande[ikq_irr][jbnd])/kT))
+                    # else:
+                    #     p1e = 0.0 
+
+                    # p2 = trans[ik_irr][ibnd][i]*scat[ik_irr][ibnd]
+
+                    # if p1e > 1e-30:
+                    #     ftmp = p2/p1e 
+                    #     delta2 = (1.0+ftmp)/(1.0+ftmp**2)
+                    #     delta1 = ftmp*delta2 
+                    #     if reset_test == 1:
+                    #         if maxdelta1 < abs(delta1-1.0):
+                    #             maxdelta1 = abs(delta1-1.0)
+                    #             print("maxdelta1: ", maxdelta1, "Energy at: ", bande[ikq_irr][jbnd])
+                    #         if maxdelta2 < abs(delta2-1.0):
+                    #             maxdelta2 = abs(delta2-1.0)
+                    #             print("maxdelta2: ", maxdelta2, "Energy at: ", bande[ik_irr][ibnd])
+
+                    #     _trans[ikq_irr][jbnd][kq2k_index] = p1*delta1 
+                    #     _trans[ik_irr][ibnd][i] = p2*delta2 
+                    # else:
+                    #     _trans[ikq_irr][jbnd][kq2k_index] = p1
+                    #     _trans[ik_irr][ibnd][i] = p2
+
                     if np.size(kq2k_index)>0:
                         kq2k_index = kq2k_index[0]
                         p1 = trans[ikq_irr][jbnd][kq2k_index]*scat[ikq_irr][jbnd]
                         p1e = p1*(e**((bande[ik_irr][ibnd]-bande[ikq_irr][jbnd])/kT))
+                        tag = 1
                     else:
-                        p1e = 0.0 
+                        p1e = 0.0
+                        tag = 0
 
                     p2 = trans[ik_irr][ibnd][i]*scat[ik_irr][ibnd]
 
                     if p1e > 1e-30:
-                        ftmp = p2/p1e 
+                        ftmp = p2/p1e
                         delta2 = (1.0+ftmp)/(1.0+ftmp**2)
-                        delta1 = ftmp*delta2 
+                        delta1 = ftmp*delta2
                         if reset_test == 1:
                             if maxdelta1 < abs(delta1-1.0):
                                 maxdelta1 = abs(delta1-1.0)
@@ -576,11 +605,14 @@ def reset_detailed_balance(trans, index, scat, bande, bz2ibz=None, bz_sym=None, 
                                 maxdelta2 = abs(delta2-1.0)
                                 print("maxdelta2: ", maxdelta2, "Energy at: ", bande[ik_irr][ibnd])
 
-                        _trans[ikq_irr][jbnd][kq2k_index] = p1*delta1 
-                        _trans[ik_irr][ibnd][i] = p2*delta2 
-                    else:
+                        _trans[ikq_irr][jbnd][kq2k_index] = p1*delta1
+                        _trans[ik_irr][ibnd][i] = p2*delta2
+                    elif tag == 1:
                         _trans[ikq_irr][jbnd][kq2k_index] = p1
                         _trans[ik_irr][ibnd][i] = p2
+                    elif tag == 0:
+                       _trans[ik_irr][ibnd][i] = p2
+
                         
     for ik in range(NK):
         for ibnd in range(NBNDout):

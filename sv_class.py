@@ -17,6 +17,7 @@ from math import pi, floor
 import scipy.stats as rn 
 import sys 
 import multiprocessing  
+import pickle 
 
 class MCseries:
     """This class defines a series Discrete-Full-Band-Monte-Carlo(DFBMC) calculation that
@@ -26,7 +27,7 @@ class MCseries:
     selfscat=1, stat_e=None, plot_e=None, stat_kx=None, plot_kx=None, 
     stat_bnd=None, stat_kint=None, stat_v=None, stat_t=None, restart=2, pltsave=0, 
     infiles_generate=0, irrbz=0, sp_fermi=0, elecf_list=None, totstep=None, scut=1e-9,
-    output='std', enable_para=False, Nprocess=1, iverbosity=None):
+    output='std', enable_para=False, Nprocess=1, iverbosity=None, save_file=None):
         """ Initialize input parameters.
 
         NK: int
@@ -44,6 +45,7 @@ class MCseries:
             if test_mode == 2, portions of test codes
             if test_mode == 3, efficiency test
             if test_mode == 4, memory test
+            if test_mode == 5, save stat data to file
         nelec: int
             number of electrons
         ds_file: string
@@ -71,9 +73,11 @@ class MCseries:
             3 for to plot by hist and to print average energy
             4 for to only calculate average energy
         stat_bnd: int
-            1 for to store band index for each step
+            1 for to store band index for each step and plot
+            2 for to store band index for each step
         stat_kint: int
-            1 for to store k index for each step 
+            1 for to store k index for each step and plot
+            2 for to store k index for each step
         stat_v: int
             1 for to store velocity step by step
             2 for to calculate average velocity
@@ -111,6 +115,8 @@ class MCseries:
             Number of process to enable parallel MC simulations.
         iverbosity: int
             whether to output full information
+        save_file: int
+            1 for save all important statitic quantities to output file
         """
 
         ## Here we start to initialize the control parameters
@@ -155,6 +161,10 @@ class MCseries:
             self.trans_file = self.prefix+'fort.708'
         else:
             self.trans_file = self.prefix+trans_file 
+            
+        if save_file is None:
+            self.save_file = None
+
 
         self.Wan_Band_List = np.array(Wan_Band_List)
         self.selfscat = selfscat 
@@ -187,7 +197,7 @@ class MCseries:
             self.pltsave = 0
             self.totstep = 100
             self.iverbosity = 1
-        elif test_mode == 2:
+        elif test_mode in [2]:
             self.stat_e = 1
             self.plot_e = 3
             self.stat_kx = 1
@@ -199,29 +209,44 @@ class MCseries:
             self.pltsave = 0
             self.totstep = 10000
             self.iverbosity = 1
+        elif test_mode in [5]:
+            self.save_file = self.prefix+'mc_stat.pkl'
+            self.stat_e = 1
+            self.plot_e = 4
+            self.stat_kx = 0
+            self.plot_kx = 0
+            self.stat_bnd = 2
+            self.stat_kint = 2
+            self.stat_v = 3
+            self.stat_t = 1
+            self.pltsave = 0
+            self.totstep = 10000
+            self.iverbosity = 0
         
-        if stat_e:
+        if stat_e is not None:
             self.stat_e = stat_e 
-        if plot_e:
+        if plot_e is not None:
             self.plot_e = plot_e
-        if stat_kx:
+        if stat_kx is not None:
             self.stat_kx = stat_kx 
-        if plot_kx:
+        if plot_kx is not None:
             self.plot_kx = plot_kx 
-        if stat_bnd:
+        if stat_bnd is not None:
             self.stat_bnd = stat_bnd
-        if stat_kint:
+        if stat_kint is not None:
             self.stat_kint = stat_kint 
-        if stat_v:
+        if stat_v is not None:
             self.stat_v = stat_v 
-        if stat_t:
+        if stat_t is not None:
             self.stat_t = stat_t 
-        if totstep:
+        if totstep is not None:
             self.totstep = totstep 
-        if enable_para:
+        if enable_para is not None:
             self.totstep = self.totstep - self.totstep%Nprocess 
-        if iverbosity:
+        if iverbosity is not None:
             self.iverbosity = iverbosity
+        if save_file is not None:
+            self.save_file = prefix+save_file
 
         self.restart = restart 
         self.pltsave = pltsave 
@@ -305,14 +330,36 @@ class MCseries:
             self.lastscat = np.zeros((self.nelec, ))
             self.avg_scat = np.zeros((self.nelec, ))
 
+        ## to wirte necessary data to save_file
+        if self.save_file:
+            self.f_save_file = open(self.save_file, 'wb')
+            pickle.dump(self.nelec, self.f_save_file)
+            pickle.dump(self.irrbz, self.f_save_file)
+            pickle.dump(self.NK, self.f_save_file)
+            pickle.dump(self.NBNDv, self.f_save_file)
+            pickle.dump(self.NBND, self.f_save_file)
+            pickle.dump(self.Wan_Band_List, self.f_save_file)
+            pickle.dump(self.reci_vec, self.f_save_file)
+            pickle.dump(self.totstep, self.f_save_file)
+            pickle.dump(self.elecf_list, self.f_save_file)
+
+        self.init_check()
+            
+
     
     def init_check(self):
         """Check whether variables in __init__ are compatible."""
-        if not (self.enable_para and self.test_mode == 0):
+        if self.enable_para is True and self.test_mode is not 0:
             raise Exception("Error: parallel only function when test_mode == 0.")
 
         if self.enable_para and (self.fout is sys.stdout):
             raise Exception("Error: parallel only function when output redirected to files.")
+
+        if self.save_file is not None and not (self.stat_bnd == 2 and self.stat_kint == 2 and self.stat_t == 1):
+            raise Exception("Error: save_file function conflicts some stat function.")
+
+        if self.save_file is not None and self.enable_para == True:
+            raise Exception("Error: save_file only works without paralization.")
         
 
     ## Frequently used small functions 
@@ -876,9 +923,9 @@ class MCseries:
             else:
                 self.sbs_time.append(self.sbs_time[-1]+copy.deepcopy(self.clifetime)) 
 
-        if self.stat_bnd == 1:
+        if self.stat_bnd > 0:
             self.sbs_bnd.append(copy.deepcopy(self.cbnd)) 
-        if self.stat_kint == 1:
+        if self.stat_kint > 0:
             self.sbs_kint.append(copy.deepcopy(self.ckint))
 
         ## add:
@@ -887,6 +934,10 @@ class MCseries:
                 scattmp = (self.scat[self.bz2ibz[self.ckint], self.cbnd] + self.lastscat)/2
                 self.avg_scat += self.clifetime * scattmp
                 self.lastscat = copy.deepcopy(self.scat[self.bz2ibz[self.ckint], self.cbnd])
+            elif self.stat_t == 1 and self.irrbz == 0:
+                scattmp = (self.scat[self.ckint, self.cbnd] + self.lastscat)/2
+                self.avg_scat += self.clifetime + scattmp 
+                self.lastscat = copy.deepcopy(self.scat[self.ckint, self.cbnd])
             else:
                 raise Exception("wrong way!!!")
 
@@ -1044,6 +1095,11 @@ class MCseries:
             res_scat = self.avg_scat/self.tot_time*2/6.5821e-16 # eV to s-1
             stat_quantity['scat(s-1)'] = copy.deepcopy(res_scat)
 
+        if self.save_file:
+            pickle.dump(np.reshape(self.sbs_kint,(-1)), self.f_save_file)
+            pickle.dump(np.reshape(self.sbs_bnd, (-1)), self.f_save_file)
+            pickle.dump(sbs_tmp, self.f_save_file)
+            pickle.dump(np.reshape(weight_t,(-1))/np.sum(weight_t), self.f_save_file)
 
         self.res_series.append(copy.deepcopy(stat_quantity)) 
  
